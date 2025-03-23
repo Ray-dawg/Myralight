@@ -1,0 +1,12 @@
+{
+  "project": "unique-trout-650",
+  "team": "unique-trout",
+  "prodUrl": "https://unique-trout-650.convex.cloud",
+  "functions": "convex/",
+  "authInfo": [
+    {
+      "domain": "https://epic-poincare5-vv8tl.dev-2.tempolabs.ai",
+      "applicationID": "unique-trout-650"
+    }
+  ]
+}
