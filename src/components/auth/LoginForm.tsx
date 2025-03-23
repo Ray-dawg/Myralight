@@ -16,7 +16,7 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { loginWithCredentials } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +24,7 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
+      await loginWithCredentials(formData.email, formData.password);
     } catch (error: any) {
       setError(error.message || "Failed to login");
     } finally {

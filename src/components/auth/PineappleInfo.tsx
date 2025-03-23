@@ -5,7 +5,7 @@ export default function PineappleInfo() {
   const { login } = useAuth();
 
   const loginAs = (role: string) => {
-    login(`${role}@pineapple.dev`, "pineapple");
+    login(role);
   };
 
   return (

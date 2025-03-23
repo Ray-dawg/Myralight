@@ -7,7 +7,9 @@ type UserRole = "admin" | "driver" | "carrier" | "shipper";
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (role: UserRole) => Promise<void>;
+  loginWithCredentials: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
   deleteAccount?: () => Promise<void>;
@@ -21,13 +23,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for changes on auth state (login, logout, etc)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -38,28 +38,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (role: UserRole) => {
     try {
-      // Check for pineapple bypass first
-      if (email.includes("@pineapple.dev") && password === "pineapple") {
-        const role = email.split("@")[0] as UserRole;
-        navigate(`/${role}`);
-        return;
-      }
+      const email = `${role}@pineapple.dev`;
+      const fakeUser = {
+        id: `pineapple-${role}`,
+        email,
+        role,
+        user_metadata: { role },
+        app_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        factors: null,
+        phone: "",
+        phone_confirmed_at: null,
+      } as unknown as User;
 
-      const { error } = await supabase.auth.signInWithPassword({
+      setUser(fakeUser);
+      setTimeout(() => navigate(`/${role}`), 100);
+    } catch (error) {
+      console.error("Error logging in:", error);
+      throw error;
+    }
+  };
+
+  const loginWithCredentials = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
-      // Get user role from metadata and navigate
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const role = user?.user_metadata?.role as UserRole;
-
+      const role = data.user?.user_metadata?.role as UserRole;
       if (role) {
         navigate(`/${role}`);
       } else {
@@ -71,10 +86,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const register = async (email: string, password: string, role: UserRole) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: role,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.user) {
+        navigate(`/${role}`);
+      }
+    } catch (error) {
+      console.error("Error registering:", error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      setUser(null);
       navigate("/login");
     } catch (error) {
       console.error("Error logging out:", error);
@@ -82,11 +121,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    login,
+    loginWithCredentials,
+    register,
+    logout,
+    loading,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
