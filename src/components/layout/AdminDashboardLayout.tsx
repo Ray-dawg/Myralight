@@ -17,6 +17,7 @@ import {
   Database,
   UserCog,
   Trash2,
+  MessageSquare,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ export default function AdminDashboardLayout({
     { icon: Database, label: "Data", path: "/admin/data" },
     { icon: Shield, label: "Security", path: "/admin/security" },
     { icon: FileText, label: "Documents", path: "/admin/documents" },
+    { icon: MessageSquare, label: "Messages", path: "/admin/messages" },
     { icon: AlertCircle, label: "System Health", path: "/admin/system-health" },
     { icon: Database, label: "Batch Ops", path: "/admin/batch" },
     { icon: Settings, label: "Settings", path: "/admin/settings" },

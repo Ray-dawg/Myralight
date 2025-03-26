@@ -4,11 +4,66 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import GeofenceManagement from "./GeofenceManagement";
+import MapComponent from "@/components/shared/MapComponent";
+import { MapPin, Truck } from "lucide-react";
 
 const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState<
-    "dashboard" | "geofence" | "loads"
+    "dashboard" | "geofence" | "loads" | "map"
   >("dashboard");
+
+  // Mock data for global load tracking
+  const globalLoads = [
+    {
+      id: "load-1",
+      latitude: 40.7128,
+      longitude: -74.006,
+      status: "in_transit",
+      description: "New York Shipment",
+    },
+    {
+      id: "load-2",
+      latitude: 34.0522,
+      longitude: -118.2437,
+      status: "delayed",
+      description: "Los Angeles Delivery",
+    },
+    {
+      id: "load-3",
+      latitude: 41.8781,
+      longitude: -87.6298,
+      status: "on_time",
+      description: "Chicago Transfer",
+    },
+    {
+      id: "load-4",
+      latitude: 29.7604,
+      longitude: -95.3698,
+      status: "on_time",
+      description: "Houston Shipment",
+    },
+    {
+      id: "load-5",
+      latitude: 33.4484,
+      longitude: -112.074,
+      status: "delayed",
+      description: "Phoenix Delivery",
+    },
+  ];
+
+  // Prepare map markers
+  const mapMarkers = globalLoads.map((load) => ({
+    id: load.id,
+    latitude: load.latitude,
+    longitude: load.longitude,
+    color:
+      load.status === "delayed"
+        ? "#FF5733"
+        : load.status === "in_transit"
+          ? "#3498DB"
+          : "#2ECC71",
+    popupContent: `<div class="p-2"><strong>${load.description}</strong><br/>Status: ${load.status.replace("_", " ")}</div>`,
+  }));
 
   return (
     <div className="p-6 space-y-6 bg-background">
@@ -28,6 +83,9 @@ const AdminDashboard = () => {
                 onClick={() => setActiveSection("loads")}
               >
                 Load Management
+              </Button>
+              <Button variant="outline" onClick={() => setActiveSection("map")}>
+                Global Tracking
               </Button>
               <Button>System Settings</Button>
             </div>
@@ -416,6 +474,75 @@ const AdminDashboard = () => {
             <p className="text-center text-gray-500">
               Load Management interface will be displayed here
             </p>
+          </div>
+        </>
+      )}
+
+      {activeSection === "map" && (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">Global Load Tracking</h1>
+            <Button
+              variant="outline"
+              onClick={() => setActiveSection("dashboard")}
+            >
+              Back to Dashboard
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3">
+              <Card className="overflow-hidden">
+                <div className="h-[600px]">
+                  <MapComponent
+                    markers={mapMarkers}
+                    zoom={3}
+                    style={{ width: "100%", height: "100%" }}
+                    userType="admin"
+                  />
+                </div>
+              </Card>
+            </div>
+
+            <div className="lg:col-span-1">
+              <Card className="h-[600px] overflow-auto">
+                <div className="p-4">
+                  <h3 className="font-medium mb-4 flex items-center">
+                    <Truck className="h-5 w-5 mr-2" />
+                    Active Shipments
+                  </h3>
+                  <div className="space-y-3">
+                    {globalLoads.map((load) => (
+                      <div
+                        key={load.id}
+                        className="p-3 border rounded-md hover:bg-gray-50"
+                      >
+                        <div className="flex items-start">
+                          <MapPin
+                            className={`h-5 w-5 mr-2 ${load.status === "delayed" ? "text-red-500" : load.status === "in_transit" ? "text-blue-500" : "text-green-500"}`}
+                          />
+                          <div>
+                            <div className="font-medium">
+                              {load.description}
+                            </div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-1">
+                              <span
+                                className={`inline-block w-2 h-2 rounded-full ${load.status === "delayed" ? "bg-red-500" : load.status === "in_transit" ? "bg-blue-500" : "bg-green-500"}`}
+                              ></span>
+                              {load.status.replace("_", " ")}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Lat: {load.latitude.toFixed(4)}, Lng:{" "}
+                              {load.longitude.toFixed(4)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </>
       )}

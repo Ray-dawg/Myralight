@@ -12,6 +12,21 @@
       name="description"
       content="Driver-facing logistics application with geofencing and auto-check-in features"
     />
+    <!-- Security Headers -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://api.tempolabs.ai https://storage.googleapis.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.tempolabs.ai https://storage.googleapis.com"
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+    <meta
+      http-equiv="Referrer-Policy"
+      content="strict-origin-when-cross-origin"
+    />
+    <meta
+      http-equiv="Permissions-Policy"
+      content="camera=(), microphone=(), geolocation=(self), interest-cohort=()"
+    />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/vite.svg" />
     <title>Trucking Logistics</title>

@@ -2,11 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Link } from "react-router-dom";
-import PineappleInfo from "./PineappleInfo";
 import { AlertCircle } from "lucide-react";
+import { sanitizeString, isValidEmail } from "@/lib/auth.utils";
+import PineappleInfo from "./PineappleInfo";
 
 export default function LoginForm() {
   const [formData, setFormData] = useState({
@@ -15,18 +16,89 @@ export default function LoginForm() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
 
-  const { loginWithCredentials } = useAuth();
+  const auth = useAuth();
+  const { loginWithCredentials } = auth;
+
+  // Fetch CSRF token on component mount
+  useEffect(() => {
+    const fetchCsrfToken = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-csrf-token`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            credentials: "include", // Important for cookies
+          },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setCsrfToken(data.csrfToken);
+        } else {
+          console.error("Failed to fetch CSRF token");
+        }
+      } catch (error) {
+        console.error("Error fetching CSRF token:", error);
+      }
+    };
+
+    fetchCsrfToken();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Sanitize email input
+    const sanitizedEmail = sanitizeString(formData.email);
+    // Don't sanitize password as it may contain special characters
+    const password = formData.password;
+
+    // Validate email format
+    if (!isValidEmail(sanitizedEmail)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // Validate CSRF token exists
+    if (!csrfToken) {
+      setError(
+        "Security token missing. Please refresh the page and try again.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await loginWithCredentials(formData.email, formData.password);
+      if (typeof loginWithCredentials !== "function") {
+        console.error(
+          "loginWithCredentials is not a function:",
+          loginWithCredentials,
+        );
+        console.log("Full auth object:", auth);
+        setError("Authentication system error. Please try again.");
+        return;
+      }
+      const { success, error } = await loginWithCredentials(
+        sanitizedEmail,
+        password,
+        csrfToken, // Pass CSRF token to login function
+      );
+      if (!success && error) {
+        setError(error);
+      }
     } catch (error: any) {
-      setError(error.message || "Failed to login");
+      console.error("Login error:", error);
+      setError(
+        error.message || "Failed to login. Please check your credentials.",
+      );
     } finally {
       setLoading(false);
     }
@@ -80,7 +152,23 @@ export default function LoginForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            {/* Hidden CSRF token field */}
+            <input type="hidden" name="csrfToken" value={csrfToken} />
+
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !csrfToken}
+            >
               {loading ? "Signing in..." : "Sign In"}
             </Button>
 
@@ -91,9 +179,15 @@ export default function LoginForm() {
               </Link>
             </p>
           </form>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h3 className="text-sm font-medium text-gray-500 mb-4 text-center">
+              Developer Options
+            </h3>
+            <PineappleInfo />
+          </div>
         </CardContent>
       </Card>
-      <PineappleInfo />
     </div>
   );
 }

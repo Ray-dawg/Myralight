@@ -7,6 +7,8 @@ import MessagesPage from "./components/shared/MessagesPage";
 import ShipperMessagesCenter from "./components/shipper/MessagesCenter";
 import DriverMessagesCenter from "./components/driver/MessagesCenter";
 import CarrierMessagesCenter from "./components/carrier/MessagesCenter";
+import AdminMessagesCenter from "./components/admin/MessagesCenter";
+import AdminDashboardLayout from "./components/layout/AdminDashboardLayout";
 
 export const shipperRoutes = [
   <Route
@@ -79,5 +81,10 @@ export const shipperRoutes = [
     key="carrier-messages-load"
     path="/carrier/messages/:loadId"
     element={<CarrierMessagesCenter />}
+  />,
+  <Route
+    key="admin-messages"
+    path="/admin/messages"
+    element={<AdminMessagesCenter />}
   />,
 ];

@@ -11,7 +11,13 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth.tsx";
+import {
+  sanitizeString,
+  validatePassword,
+  isValidEmail,
+  validatePhoneNumber,
+} from "@/lib/auth.utils";
 import { AlertCircle } from "lucide-react";
 
 export default function RegisterForm() {
@@ -28,37 +34,75 @@ export default function RegisterForm() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
+    // Sanitize all inputs
+    const sanitizedData = {
+      email: sanitizeString(formData.email),
+      password: formData.password, // Don't sanitize password as it may contain special characters
+      confirmPassword: formData.confirmPassword,
+      firstName: sanitizeString(formData.firstName),
+      lastName: sanitizeString(formData.lastName),
+      companyName: sanitizeString(formData.companyName),
+      phone: sanitizeString(formData.phone),
+      role: sanitizeString(formData.role),
+    };
+
+    // Validate email
+    if (!isValidEmail(sanitizedData.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // Validate password
+    if (sanitizedData.password !== sanitizedData.confirmPassword) {
       setError("Passwords do not match");
+      return;
+    }
+
+    const passwordValidation = validatePassword(sanitizedData.password);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message || "Invalid password");
+      return;
+    }
+
+    // Validate phone number
+    if (sanitizedData.phone) {
+      const phoneValidation = validatePhoneNumber(sanitizedData.phone);
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.message || "Invalid phone number");
+        return;
+      }
+    }
+
+    if (!sanitizedData.role) {
+      setError("Please select a role");
       return;
     }
 
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            role: formData.role,
-            company_name: formData.companyName,
-            phone: formData.phone,
-          },
+      const { success, error } = await register(
+        sanitizedData.email,
+        sanitizedData.password,
+        sanitizedData.role as "admin" | "driver" | "carrier" | "shipper",
+        {
+          first_name: sanitizedData.firstName,
+          last_name: sanitizedData.lastName,
+          phone: sanitizedData.phone,
         },
-      });
+      );
 
-      if (error) throw error;
-
-      // Show email verification page
-      navigate("/verify-email");
+      if (success) {
+        navigate("/verify-email");
+      } else {
+        setError(error || "Failed to register");
+      }
     } catch (error: any) {
       setError(error.message || "Failed to register");
     } finally {

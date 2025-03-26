@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import DocumentCenter from "./components/driver/DocumentCenter";
 import EarningsDashboard from "./components/driver/EarningsDashboard";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -12,6 +12,7 @@ import TripHistory from "./components/driver/TripHistory";
 import MessagesCenter from "./components/driver/MessagesCenter";
 import Settings from "./components/driver/Settings";
 import LoadDiscovery from "./components/driver/LoadDiscovery";
+import DriverMapView from "./components/driver/DriverMapView";
 import FleetDashboard from "./components/carrier/FleetDashboard";
 import CarrierEarningsDashboard from "./components/carrier/EarningsDashboard";
 import CompanySettings from "./components/carrier/CompanySettings";
@@ -39,7 +40,7 @@ import DataDashboard from "./components/admin/DataDashboard";
 import UsersDashboard from "./components/admin/UsersDashboard";
 import AdminSettings from "./components/admin/AdminSettings";
 import AdminLoadCreation from "./components/admin/LoadCreation";
-import { useRoutes, Routes, Route } from "react-router-dom";
+import { useRoutes, Routes, Route, Navigate } from "react-router-dom";
 import { shipperRoutes } from "./App.routes";
 import RateManagement from "./components/shipper/RateManagement";
 import ShippingReports from "./components/shipper/ShippingReports";
@@ -54,8 +55,12 @@ import RegisterForm from "./components/auth/RegisterForm";
 import EmailVerification from "./components/auth/EmailVerification";
 import DeleteAccount from "./components/auth/DeleteAccount";
 import ProfilePictureUpload from "./components/auth/ProfilePictureUpload";
+import ForgotPassword from "./components/auth/ForgotPassword";
+import ResetPassword from "./components/auth/ResetPassword";
+import AuthGuard from "./components/auth/AuthGuard";
 import { AuthProvider } from "./lib/auth.tsx";
 import { ThemeProvider } from "./components/ui/theme-provider";
+import { Toaster } from "@/components/ui/toaster";
 import routes from "tempo-routes";
 
 import TooltipProvider from "./components/layout/TooltipProvider";
@@ -70,13 +75,21 @@ function App() {
     <ThemeProvider defaultTheme="system" enableSystem>
       <AuthProvider>
         <TooltipProvider>
-          <Suspense fallback={<p>Loading...</p>}>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+              </div>
+            }
+          >
             <div>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<LoginForm />} />
                 <Route path="/register" element={<RegisterForm />} />
                 <Route path="/verify-email" element={<EmailVerification />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/delete-account" element={<DeleteAccount />} />
                 <Route
                   path="/update-profile-picture"
@@ -90,14 +103,16 @@ function App() {
                 <Route
                   path="/admin"
                   element={
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <AdminDashboardLayout>
-                          <AdminDashboard />
-                        </AdminDashboardLayout>
-                      </TooltipTrigger>
-                      <TooltipContent>Admin Dashboard</TooltipContent>
-                    </Tooltip>
+                    <AuthGuard allowedRoles={["admin"]}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AdminDashboardLayout>
+                            <AdminDashboard />
+                          </AdminDashboardLayout>
+                        </TooltipTrigger>
+                        <TooltipContent>Admin Dashboard</TooltipContent>
+                      </Tooltip>
+                    </AuthGuard>
                   }
                 />
                 <Route
@@ -241,89 +256,121 @@ function App() {
                 <Route
                   path="/driver"
                   element={
-                    <DashboardLayout>
-                      <DriverDashboard />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <DriverDashboard />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/documents"
                   element={
-                    <DashboardLayout>
-                      <DocumentCenter />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <DocumentCenter />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/earnings"
                   element={
-                    <DashboardLayout>
-                      <EarningsDashboard />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <EarningsDashboard />
+                      </DashboardLayout>
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/driver/navigation"
+                  element={
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <DriverMapView driverId="driver-123" />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/truck"
                   element={
-                    <DashboardLayout>
-                      <TruckManagement />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <TruckManagement />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/history"
                   element={
-                    <DashboardLayout>
-                      <TripHistory />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <TripHistory />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/messages"
                   element={
-                    <DashboardLayout>
-                      <MessagesCenter />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <MessagesCenter />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/settings"
                   element={
-                    <DashboardLayout>
-                      <Settings />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <Settings />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/profile"
                   element={
-                    <DashboardLayout>
-                      <Profile />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <Profile />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/notifications"
                   element={
-                    <DashboardLayout>
-                      <Notifications />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <Notifications />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/help"
                   element={
-                    <DashboardLayout>
-                      <HelpSupport />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <HelpSupport />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
                   path="/driver/docs"
                   element={
-                    <DashboardLayout>
-                      <Documentation />
-                    </DashboardLayout>
+                    <AuthGuard allowedRoles={["driver", "admin"]}>
+                      <DashboardLayout>
+                        <Documentation />
+                      </DashboardLayout>
+                    </AuthGuard>
                   }
                 />
 
@@ -331,9 +378,11 @@ function App() {
                 <Route
                   path="/carrier"
                   element={
-                    <CarrierDashboardLayout>
-                      <FleetDashboard />
-                    </CarrierDashboardLayout>
+                    <AuthGuard allowedRoles={["carrier", "admin"]}>
+                      <CarrierDashboardLayout>
+                        <FleetDashboard />
+                      </CarrierDashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
@@ -437,9 +486,11 @@ function App() {
                 <Route
                   path="/shipper"
                   element={
-                    <ShipperDashboardLayout>
-                      <ShipmentsDashboard />
-                    </ShipperDashboardLayout>
+                    <AuthGuard allowedRoles={["shipper", "admin"]}>
+                      <ShipperDashboardLayout>
+                        <ShipmentsDashboard />
+                      </ShipperDashboardLayout>
+                    </AuthGuard>
                   }
                 />
                 <Route
@@ -563,7 +614,8 @@ function App() {
                   }
                 />
               </Routes>
-              {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
+              {import.meta.env.VITE_TEMPO && useRoutes(routes)}
+              <Toaster />
             </div>
           </Suspense>
         </TooltipProvider>

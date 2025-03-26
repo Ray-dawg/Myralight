@@ -28,6 +28,7 @@ import {
   Tag,
 } from "lucide-react";
 import { format } from "date-fns";
+import AdminDashboardLayout from "../layout/AdminDashboardLayout";
 
 interface Message {
   id: string;
@@ -45,7 +46,7 @@ interface Message {
   current_status?: string;
 }
 
-export default function MessageHistoryViewer() {
+function MessageHistoryViewerContent() {
   const [activeTab, setActiveTab] = useState("search");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -944,5 +945,13 @@ export default function MessageHistoryViewer() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function MessageHistoryViewer() {
+  return (
+    <AdminDashboardLayout>
+      <MessageHistoryViewerContent />
+    </AdminDashboardLayout>
   );
 }

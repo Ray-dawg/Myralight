@@ -39,6 +39,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/lib/supabase";
+import MapComponent from "@/components/shared/MapComponent";
 
 interface ShipmentMetrics {
   etaConfidence: number;
@@ -155,13 +156,18 @@ export default function ShipmentsDashboard() {
         },
       ];
 
-      // Simulate fetching BOL documents and updating shipment data
-      const { data: bolDocs, error } = await supabase
-        .from("documents")
-        .select("*")
-        .eq("category", "bol");
+      try {
+        // Simulate fetching BOL documents and updating shipment data
+        const { data: bolDocs, error } = await supabase
+          .from("documents")
+          .select("*")
+          .eq("category", "bol");
 
-      if (error) throw error;
+        if (error) throw error;
+      } catch (supabaseError) {
+        console.error("Supabase error:", supabaseError);
+        // Continue with mock data even if Supabase fails
+      }
 
       // In a real implementation, we would match BOL docs to shipments
       // For now, we'll just use our mock data
@@ -316,11 +322,42 @@ export default function ShipmentsDashboard() {
   return (
     <div className="h-screen relative overflow-hidden">
       {/* Map Container */}
-      <div className="absolute inset-0 bg-gray-100">
-        <div className="h-full w-full flex items-center justify-center text-gray-400">
-          <MapPin className="h-12 w-12" />
-          <span className="ml-2">Map with shipment locations</span>
-        </div>
+      <div className="absolute inset-0">
+        <MapComponent
+          markers={searchedShipments.map((shipment) => ({
+            id: shipment.id,
+            latitude: shipment.origin.includes("Chicago")
+              ? 41.8781
+              : shipment.origin.includes("Milwaukee")
+                ? 43.0389
+                : shipment.origin.includes("Minneapolis")
+                  ? 44.9778
+                  : shipment.origin.includes("Des Moines")
+                    ? 41.6005
+                    : 41.8781,
+            longitude: shipment.origin.includes("Chicago")
+              ? -87.6298
+              : shipment.origin.includes("Milwaukee")
+                ? -87.9065
+                : shipment.origin.includes("Minneapolis")
+                  ? -93.265
+                  : shipment.origin.includes("Des Moines")
+                    ? -93.6091
+                    : -87.6298,
+            color:
+              shipment.status === "pending"
+                ? "#EAB308"
+                : shipment.status === "in_transit"
+                  ? "#3B82F6"
+                  : shipment.status === "delivered"
+                    ? "#22C55E"
+                    : "#EF4444",
+            popupContent: `<div class="p-2"><strong>${shipment.id}</strong><br/>From: ${shipment.origin}<br/>To: ${shipment.destination}</div>`,
+          }))}
+          zoom={4}
+          style={{ width: "100%", height: "100%" }}
+          userType="shipper"
+        />
       </div>
 
       {/* View Toggle */}

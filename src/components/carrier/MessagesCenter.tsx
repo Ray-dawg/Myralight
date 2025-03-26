@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageSquare, Users, Search } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import CarrierDashboardLayout from "../layout/CarrierDashboardLayout";
 
-export default function CarrierMessagesCenter() {
+function MessagesCenterContent() {
   const [selectedLoadId, setSelectedLoadId] = useState<string | null>("1");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -109,5 +110,13 @@ export default function CarrierMessagesCenter() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CarrierMessagesCenter() {
+  return (
+    <CarrierDashboardLayout>
+      <MessagesCenterContent />
+    </CarrierDashboardLayout>
   );
 }

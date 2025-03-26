@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, Send } from "lucide-react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 interface Message {
   id: string;
@@ -29,7 +30,7 @@ interface Chat {
   unread: number;
 }
 
-export default function MessagesCenter() {
+function MessagesCenterContent() {
   const [selectedChat, setSelectedChat] = useState<string | null>("1");
   const [newMessage, setNewMessage] = useState("");
 
@@ -248,5 +249,13 @@ export default function MessagesCenter() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MessagesCenter() {
+  return (
+    <DashboardLayout>
+      <MessagesCenterContent />
+    </DashboardLayout>
   );
 }

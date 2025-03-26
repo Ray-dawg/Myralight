@@ -6,6 +6,7 @@ import {
   MAPBOX_STYLE,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
+  initMapbox,
 } from "@/lib/mapbox";
 
 // Set Mapbox access token
@@ -26,11 +27,13 @@ interface MapComponentProps {
     coordinates: Array<[number, number]>;
     color?: string;
     width?: number;
+    dashArray?: Array<number>;
   }>;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
   interactive?: boolean;
   style?: React.CSSProperties;
   className?: string;
+  userType?: string; // Added to handle different user types
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
@@ -42,53 +45,86 @@ const MapComponent: React.FC<MapComponentProps> = ({
   interactive = true,
   style = { width: "100%", height: "400px" },
   className = "",
+  userType,
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markerRefs = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const routeRefs = useRef<{ [key: string]: string }>({});
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current) return;
+    // Check if we're in a browser environment
+    if (typeof window === "undefined" || !mapContainer.current) return;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: MAPBOX_STYLE,
-      center: center,
-      zoom: zoom,
-      interactive: interactive,
-    });
-
-    map.current.on("load", () => {
-      setMapLoaded(true);
-    });
-
-    if (onMapClick) {
-      map.current.on("click", (e) => {
-        onMapClick(e.lngLat);
-      });
+    // Ensure mapboxgl is available
+    if (!mapboxgl) {
+      setMapError(
+        "Mapbox GL JS is not available. Please check your internet connection.",
+      );
+      return;
     }
 
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
+    // Ensure access token is set
+    if (!mapboxgl.accessToken) {
+      mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+    }
+
+    try {
+      // Initialize the map
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: MAPBOX_STYLE,
+        center: center,
+        zoom: zoom,
+        interactive: interactive,
+        attributionControl: true,
+        failIfMajorPerformanceCaveat: false, // Allow map to render in lower performance environments
+      });
+
+      // Add navigation controls
+      map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+      map.current.on("load", () => {
+        setMapLoaded(true);
+      });
+
+      if (onMapClick) {
+        map.current.on("click", (e) => {
+          onMapClick(e.lngLat);
+        });
       }
-    };
+
+      // Handle errors
+      map.current.on("error", (e) => {
+        console.error("Mapbox error:", e.error);
+        setMapError("Failed to load map. Please try again later.");
+      });
+
+      return () => {
+        if (map.current) {
+          map.current.remove();
+          map.current = null;
+        }
+      };
+    } catch (error) {
+      console.error("Error initializing map:", error);
+      setMapError("Failed to initialize map. Please try again later.");
+    }
   }, []);
 
   // Update center and zoom when props change
   useEffect(() => {
-    if (map.current) {
+    if (map.current && mapLoaded) {
       map.current.flyTo({
         center: center,
         zoom: zoom,
         essential: true,
       });
     }
-  }, [center, zoom]);
+  }, [center, zoom, mapLoaded]);
 
   // Handle markers
   useEffect(() => {
@@ -103,11 +139,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
       const el = document.createElement("div");
       el.className = "marker";
       el.style.backgroundColor = marker.color || "#3FB1CE";
-      el.style.width = "20px";
-      el.style.height = "20px";
+      el.style.width = "24px";
+      el.style.height = "24px";
       el.style.borderRadius = "50%";
-      el.style.border = "2px solid white";
-      el.style.boxShadow = "0 0 5px rgba(0,0,0,0.3)";
+      el.style.border = "3px solid white";
+      el.style.boxShadow = "0 0 10px rgba(0,0,0,0.4)";
 
       const mapMarker = new mapboxgl.Marker(el)
         .setLngLat([marker.longitude, marker.latitude])
@@ -169,10 +205,31 @@ const MapComponent: React.FC<MapComponentProps> = ({
           "line-color": route.color || "#3887be",
           "line-width": route.width || 5,
           "line-opacity": 0.75,
+          "line-dasharray": route.dashArray,
         },
       });
     });
   }, [routes, mapLoaded]);
+
+  if (mapError) {
+    return (
+      <div
+        style={{
+          ...style,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#f0f0f0",
+          color: "#ff3333",
+          padding: "20px",
+          borderRadius: "4px",
+        }}
+        className={className}
+      >
+        {mapError}
+      </div>
+    );
+  }
 
   return <div ref={mapContainer} style={style} className={className} />;
 };
