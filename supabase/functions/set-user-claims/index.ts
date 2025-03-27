@@ -67,9 +67,18 @@ serve(async (req) => {
       ? permissions.map((p) => p.permission)
       : [];
 
-    // Set custom claims for the user
+    // Set custom claims for the user with short expiry for sensitive actions
     const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { role, permissions: permissionList },
+      user_metadata: {
+        role,
+        permissions: permissionList,
+        security: {
+          tokenIssuedAt: new Date().toISOString(),
+          sensitiveActionExpiry: new Date(
+            Date.now() + 5 * 60 * 1000,
+          ).toISOString(), // 5 minutes
+        },
+      },
     });
 
     if (error) {

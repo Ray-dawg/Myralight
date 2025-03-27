@@ -172,36 +172,17 @@ serve(async (req) => {
   try {
     // Create a Supabase client with the Admin key
     // Use environment variables that are automatically available in Supabase Edge Functions
-    const supabaseUrl =
-      Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL");
-    const supabaseKey =
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-      Deno.env.get("SUPABASE_SERVICE_KEY") ||
-      Deno.env.get("SUPABASE_ANON_KEY") ||
-      Deno.env.get("VITE_SUPABASE_ANON_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     // Log available environment variables for debugging
-    console.log("Available environment variables:", {
-      SUPABASE_URL: !!Deno.env.get("SUPABASE_URL"),
-      VITE_SUPABASE_URL: !!Deno.env.get("VITE_SUPABASE_URL"),
-      SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
-      SUPABASE_SERVICE_KEY: !!Deno.env.get("SUPABASE_SERVICE_KEY"),
-      SUPABASE_ANON_KEY: !!Deno.env.get("SUPABASE_ANON_KEY"),
-      VITE_SUPABASE_ANON_KEY: !!Deno.env.get("VITE_SUPABASE_ANON_KEY"),
+    console.log("Using Supabase credentials:", {
+      supabaseUrl: !!supabaseUrl,
+      supabaseKey: !!supabaseKey,
     });
 
-    // Use the variables directly without additional fallback logic
-    const finalSupabaseUrl = supabaseUrl;
-    const finalSupabaseKey = supabaseKey;
-
-    if (!finalSupabaseUrl || !finalSupabaseKey) {
-      console.error("Missing Supabase credentials", {
-        supabaseUrl: !!finalSupabaseUrl,
-        supabaseKey: !!finalSupabaseKey,
-        envKeys: Object.keys(Deno.env.toObject()).filter(
-          (key) => key.includes("SUPABASE") || key.includes("VITE_SUPABASE"),
-        ),
-      });
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase credentials");
       return new Response(
         JSON.stringify({
           error: "Server configuration error - Supabase credentials not found",
@@ -213,7 +194,7 @@ serve(async (req) => {
       );
     }
 
-    const supabaseAdmin = createClient(finalSupabaseUrl, finalSupabaseKey, {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -392,6 +373,78 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
+    }
+
+    // Handle account lockout for failed login attempts
+    if (action === "login" && !success) {
+      // Get user profile to check current failed attempts
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .select("failed_login_attempts, account_locked")
+        .eq("email", email)
+        .single();
+
+      if (!profileError && profile) {
+        // Increment failed login attempts
+        const failedAttempts = (profile.failed_login_attempts || 0) + 1;
+
+        // Check if we should lock the account (after 5 failed attempts)
+        if (failedAttempts >= 5 && !profile.account_locked) {
+          // Lock account for 30 minutes
+          const lockoutPeriod = 30 * 60 * 1000; // 30 minutes in milliseconds
+          const lockedUntil = new Date(Date.now() + lockoutPeriod);
+
+          // Update profile with lockout information
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              failed_login_attempts: failedAttempts,
+              account_locked: true,
+              account_locked_until: lockedUntil.toISOString(),
+            })
+            .eq("email", email);
+
+          // Log account lockout event
+          await supabaseAdmin.from("auth_logs").insert([
+            {
+              event_type: AuthEventType.ACCOUNT_LOCKED,
+              email,
+              ip_address: ip,
+              user_agent: userAgent,
+              level: LogLevel.SECURITY,
+              details: {
+                securityEventId,
+                reason: "Multiple failed login attempts",
+                failedAttempts,
+                lockedUntil: lockedUntil.toISOString(),
+                deviceInfo,
+              },
+              created_at: new Date().toISOString(),
+            },
+          ]);
+
+          // TODO: Send email notification to user about account lockout
+          // This would be implemented in a separate edge function
+        } else if (!profile.account_locked) {
+          // Just update the failed attempts counter
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              failed_login_attempts: failedAttempts,
+            })
+            .eq("email", email);
+        }
+      }
+    } else if (action === "login" && success) {
+      // Reset failed login attempts on successful login
+      await supabaseAdmin
+        .from("profiles")
+        .update({
+          failed_login_attempts: 0,
+          account_locked: false,
+          account_locked_until: null,
+        })
+        .eq("email", email);
     }
 
     // Also log to auth_logs table for comprehensive security logging

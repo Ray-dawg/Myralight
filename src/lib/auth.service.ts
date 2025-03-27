@@ -126,6 +126,20 @@ export const authenticateUser = async (
           }
         : {};
 
+    // Store session security information for session hijacking prevention
+    if (data.session && typeof window !== "undefined") {
+      // Store session security information in the database
+      await supabase.from(TABLES.SESSION_SECURITY).insert([
+        {
+          session_id: data.session.id,
+          user_id: data.user.id,
+          ip_address: "client-side", // In a real implementation, you'd use a server-side API to get the actual IP
+          user_agent: window.navigator.userAgent.substring(0, 255), // Limit length for storage
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+
     // Log the successful login
     await logAuthEvent({
       event_type: AuthEventType.LOGIN_SUCCESS,
@@ -436,6 +450,64 @@ export const updateUserProfile = async (
 };
 
 /**
+ * Revokes all active sessions for a user
+ * @param userId User ID to revoke sessions for
+ * @returns AuthResponse with success status and optional error message
+ */
+export const revokeUserSessions = async (
+  userId: string,
+): Promise<AuthResponse> => {
+  try {
+    if (!userId) {
+      return { success: false, error: ERROR_MESSAGES.NO_USER };
+    }
+
+    // Get all active sessions for the user
+    const { data: sessions, error: sessionsError } = await supabase
+      .from(TABLES.SESSION_SECURITY)
+      .select("session_id")
+      .eq("user_id", userId);
+
+    if (sessionsError) {
+      console.error("Error fetching user sessions:", sessionsError);
+      return { success: false, error: getAuthErrorMessage(sessionsError) };
+    }
+
+    // Add all session tokens to the revoked tokens table
+    if (sessions && sessions.length > 0) {
+      const revokedTokens = sessions.map((session) => ({
+        token_id: session.session_id,
+        user_id: userId,
+        revoked_at: new Date().toISOString(),
+        reason: "manual_revocation",
+      }));
+
+      const { error: revokeError } = await supabase
+        .from(TABLES.REVOKED_TOKENS)
+        .insert(revokedTokens);
+
+      if (revokeError) {
+        console.error("Error revoking tokens:", revokeError);
+        return { success: false, error: getAuthErrorMessage(revokeError) };
+      }
+    }
+
+    // Log the session revocation
+    await logAuthEvent({
+      event_type: "session_revocation",
+      user_id: userId,
+      level: LogLevel.SECURITY,
+      details: { session_count: sessions?.length || 0 },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in revokeUserSessions:", error);
+    return { success: false, error: getAuthErrorMessage(error) };
+  }
+};
+
+/**
  * Deletes the user's account and profile
  * @param userId User ID to delete
  * @returns AuthResponse with success status and optional error message
@@ -447,6 +519,9 @@ export const deleteUserAccount = async (
     if (!userId) {
       return { success: false, error: ERROR_MESSAGES.NO_USER };
     }
+
+    // Revoke all user sessions first
+    await revokeUserSessions(userId);
 
     // Delete user avatar from storage if it exists
     await deleteUserAvatar(userId);
@@ -750,11 +825,17 @@ export const setUserClaims = async (userId: string): Promise<AuthResponse> => {
       return { success: false, error: "User profile not found" };
     }
 
-    // Update user metadata with role
+    // Update user metadata with role and security information for sensitive actions
     const { error } = await supabase.auth.updateUser({
       data: {
         role: profile.role,
         updated_at: new Date().toISOString(),
+        security: {
+          tokenIssuedAt: new Date().toISOString(),
+          sensitiveActionExpiry: new Date(
+            Date.now() + 5 * 60 * 1000,
+          ).toISOString(), // 5 minutes
+        },
       },
     });
 

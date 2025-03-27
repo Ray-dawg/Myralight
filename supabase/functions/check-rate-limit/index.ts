@@ -18,19 +18,31 @@ serve(async (req) => {
 
   try {
     // Create a Supabase client with the Admin key
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase credentials");
+      return new Response(
+        JSON.stringify({
+          error: "Server configuration error - Supabase credentials not found",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
         },
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
-    );
+    });
 
     // Get the request body
-    const { email, action } = await req.json();
+    const { email, action, ip, isAdminRequest } = await req.json();
 
     if (!email || !action) {
       return new Response(
@@ -49,6 +61,81 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
+    }
+
+    // Check for account lockout if this is a login attempt
+    if (action === "login") {
+      // Get user profile to check if account is locked
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .select("account_locked, account_locked_until")
+        .eq("email", email)
+        .single();
+
+      if (!profileError && profile) {
+        // Check if account is locked
+        if (profile.account_locked) {
+          // Check if lockout period has expired
+          if (
+            profile.account_locked_until &&
+            new Date(profile.account_locked_until) > new Date()
+          ) {
+            // Calculate remaining lockout time in seconds
+            const remainingTime = Math.ceil(
+              (new Date(profile.account_locked_until).getTime() -
+                new Date().getTime()) /
+                1000,
+            );
+
+            return new Response(
+              JSON.stringify({
+                limited: true,
+                locked: true,
+                message: `Account is temporarily locked due to multiple failed login attempts. Please try again later.`,
+                remainingTime: remainingTime,
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 200,
+              },
+            );
+          } else {
+            // Lockout period has expired, unlock the account
+            await supabaseAdmin
+              .from("profiles")
+              .update({
+                account_locked: false,
+                account_locked_until: null,
+                failed_login_attempts: 0,
+              })
+              .eq("email", email);
+          }
+        }
+      }
+    }
+
+    // Check IP whitelist for admin access
+    if (isAdminRequest && ip) {
+      const { data: whitelistedIp, error: whitelistError } = await supabaseAdmin
+        .from("admin_ip_whitelist")
+        .select("ip_address")
+        .eq("ip_address", ip)
+        .single();
+
+      if (whitelistError || !whitelistedIp) {
+        console.warn(`Admin access attempt from non-whitelisted IP: ${ip}`);
+        return new Response(
+          JSON.stringify({
+            limited: true,
+            message:
+              "Access denied: Your IP address is not authorized to access the admin panel.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 403,
+          },
+        );
+      }
     }
 
     // Get rate limit configuration

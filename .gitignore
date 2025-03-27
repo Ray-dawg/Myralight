@@ -29,3 +29,9 @@ dist-ssr
 **/tempobook/storyboards/
 
 core
+
+# Security reports
+security-reports/
+.scannerwork/
+.zap/
+

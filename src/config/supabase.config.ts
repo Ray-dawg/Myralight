@@ -18,6 +18,10 @@ export const AUTH_CONFIG = {
   persistSession: true,
   autoRefreshToken: true,
   detectSessionInUrl: true,
+  // JWT and token configuration
+  tokenRefreshMargin: 60, // Seconds before expiry to refresh token
+  jwtExpiryTime: 3600, // 1 hour in seconds
+  refreshTokenRotationEnabled: true,
   // MFA configuration
   mfa: {
     enabled: true,
@@ -41,6 +45,13 @@ export const AUTH_CONFIG = {
       reset: 3, // Max password reset attempts
     },
     timeWindow: 60 * 60, // Time window in seconds (1 hour)
+  },
+  // Session security
+  sessionSecurity: {
+    ipPinning: true,
+    userAgentCheck: true,
+    shortLivedTokensForSensitiveActions: true,
+    sensitiveActionTokenExpiry: 300, // 5 minutes in seconds
   },
 };
 
@@ -71,6 +82,8 @@ export const TABLES = {
   USER_FACTORS: "user_factors", // Table for MFA factors
   AUTH_LOGS: "auth_logs", // Table for authentication event logging
   EMAIL_TEMPLATES: "email_templates", // Table for customizable email templates
+  REVOKED_TOKENS: "revoked_tokens", // Table for tracking revoked tokens
+  SESSION_SECURITY: "session_security", // Table for session security information
 };
 
 // Error messages
@@ -80,6 +93,15 @@ export const ERROR_MESSAGES = {
     "Missing Supabase environment variables. Authentication will not work.",
   configAlert:
     "Supabase configuration is missing. Please check your environment variables.",
+  // Session security errors
+  SESSION_IP_MISMATCH:
+    "Your session appears to be from a different location. Please log in again for security reasons.",
+  SESSION_DEVICE_MISMATCH:
+    "Your session appears to be from a different device. Please log in again for security reasons.",
+  SESSION_EXPIRED: "Your session has expired. Please log in again.",
+  TOKEN_REVOKED: "Your access has been revoked. Please log in again.",
+  SENSITIVE_ACTION_UNAUTHORIZED:
+    "This action requires recent authentication. Please verify your identity to continue.",
 
   // Authentication errors
   INVALID_CREDENTIALS:
