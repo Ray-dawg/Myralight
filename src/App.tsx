@@ -40,7 +40,14 @@ import DataDashboard from "./components/admin/DataDashboard";
 import UsersDashboard from "./components/admin/UsersDashboard";
 import AdminSettings from "./components/admin/AdminSettings";
 import AdminLoadCreation from "./components/admin/LoadCreation";
-import { useRoutes, Routes, Route, Navigate } from "react-router-dom";
+import {
+  useRoutes,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { shipperRoutes } from "./App.routes";
 import RateManagement from "./components/shipper/RateManagement";
 import ShippingReports from "./components/shipper/ShippingReports";
@@ -70,9 +77,47 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Animation variants for page transitions
+const pageVariants = {
+  initial: {
+    opacity: 0,
+    x: -20,
+  },
+  in: {
+    opacity: 1,
+    x: 0,
+  },
+  out: {
+    opacity: 0,
+    x: 20,
+  },
+};
+
+const pageTransition = {
+  type: "tween",
+  ease: "anticipate",
+  duration: 0.3,
+};
+
+// Animated route component wrapper
+const AnimatedRoute = ({ children }: { children: React.ReactNode }) => (
+  <motion.div
+    initial="initial"
+    animate="in"
+    exit="out"
+    variants={pageVariants}
+    transition={pageTransition}
+    className="w-full h-full"
+  >
+    {children}
+  </motion.div>
+);
+
 function App() {
+  const location = useLocation();
+
   return (
-    <ThemeProvider defaultTheme="system" enableSystem>
+    <ThemeProvider defaultTheme="system" enableSystem={true}>
       <AuthProvider>
         <TooltipProvider>
           <Suspense
@@ -82,11 +127,32 @@ function App() {
               </div>
             }
           >
-            <div>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<LoginForm />} />
-                <Route path="/register" element={<RegisterForm />} />
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route
+                  path="/"
+                  element={
+                    <AnimatedRoute>
+                      <Home />
+                    </AnimatedRoute>
+                  }
+                />
+                <Route
+                  path="/login"
+                  element={
+                    <AnimatedRoute>
+                      <LoginForm />
+                    </AnimatedRoute>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <AnimatedRoute>
+                      <RegisterForm />
+                    </AnimatedRoute>
+                  }
+                />
                 <Route path="/verify-email" element={<EmailVerification />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
@@ -616,7 +682,7 @@ function App() {
               </Routes>
               {import.meta.env.VITE_TEMPO && useRoutes(routes)}
               <Toaster />
-            </div>
+            </AnimatePresence>
           </Suspense>
         </TooltipProvider>
       </AuthProvider>

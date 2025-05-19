@@ -73,6 +73,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     }
 
     try {
+      console.log("Initializing map with token:", mapboxgl.accessToken);
       // Initialize the map
       map.current = new mapboxgl.Map({
         container: mapContainer.current,

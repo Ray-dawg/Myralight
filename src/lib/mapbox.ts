@@ -1,5 +1,6 @@
 // Mapbox configuration and utilities
 export const MAPBOX_ACCESS_TOKEN =
+  (import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string) ||
   "pk.eyJ1IjoicmF5ODgxNiIsImEiOiJjbThlbnUyOWYwM2Z0MmtxMWxpbDl4aTR0In0.by1iUYheNxA294wLpJUyXw";
 
 // Updated to a consistent style across all dashboards - using a more detailed style for better visualization
@@ -21,12 +22,8 @@ export const formatCoordinates = (
 export const initMapbox = () => {
   // This helps with SSR and environments where window might not be available
   if (typeof window !== "undefined") {
-    // Make sure mapboxgl is available
+    // Make sure mapboxgl is loaded
     try {
-      // Check if mapboxgl is loaded
-      if (window.mapboxgl) {
-        window.mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
-      }
       return true;
     } catch (error) {
       console.error("Error initializing Mapbox:", error);
